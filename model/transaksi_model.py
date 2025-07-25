@@ -6,6 +6,12 @@ class TransaksiModel:
         self.conn = get_connection()
         self.cursor = self.conn.cursor()
 
+    def __del__(self):
+        if self.cursor:
+            self.cursor.close()
+        if self.conn:
+            self.conn.close()
+
     def simpan_transaksi(self, data):
         query = """
             INSERT INTO transaksi_rumah (
@@ -32,10 +38,19 @@ class TransaksiModel:
 
     def ambil_semua_transaksi(self):
         try:
-            query = "SELECT * FROM transaksi_rumah"
+            query = "SELECT * FROM transaksi_rumah ORDER BY id DESC"
             self.cursor.execute(query)
             hasil = self.cursor.fetchall()
             return hasil
         except Exception as e:
             print("Gagal mengambil data transaksi:", e)
             return []
+
+    def ambil_transaksi_berdasarkan_id(self, transaksi_id):
+        try:
+            query = "SELECT * FROM transaksi_rumah WHERE id = %s"
+            self.cursor.execute(query, (transaksi_id,))
+            return self.cursor.fetchone()
+        except Exception as e:
+            print("Gagal mengambil data transaksi berdasarkan ID:", e)
+            return None
