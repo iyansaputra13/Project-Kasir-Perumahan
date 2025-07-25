@@ -1,4 +1,4 @@
-# dashboard_view.py
+# view/dashboard_view.py
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget,

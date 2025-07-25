@@ -1,5 +1,7 @@
 # controller/transaksi_controller.py
 from model.transaksi_model import TransaksiModel
+from utils.perhitungan import hitung_luas_dari_tipe
+
 
 class TransaksiController:
     def __init__(self):
