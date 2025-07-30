@@ -1,3 +1,5 @@
+#utills/perhitungan.py
+
 def hitung_luas_dari_tipe(tipe):
     mapping = {
         "DIAMOND POJOK": (195, 150),
