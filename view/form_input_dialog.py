@@ -1,211 +1,165 @@
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton,
-    QComboBox, QDateEdit, QMessageBox, QHBoxLayout, QFormLayout,
-    QGroupBox
+    QComboBox, QFileDialog, QMessageBox, QFormLayout, QDateEdit
 )
-from PySide6.QtCore import QDate, QRegularExpression
-from PySide6.QtGui import QFont, QRegularExpressionValidator
+from PySide6.QtCore import QDate
 from controller.transaksi_controller import TransaksiController
+from controller.ocr_helper import extract_ktp_data
+
+import os
+import shutil
 
 
 class FormInputDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Form Input Transaksi Rumah")
-        self.setMinimumSize(600, 800)
+        self.setWindowTitle("Form Input Transaksi")
         self.controller = TransaksiController()
-        self._harga = 0
-        self._utj = 0
-        self._dp = 0
-        self._cicilan = 0
+        self.foto_ktp_path = ""
 
         self.init_ui()
 
     def init_ui(self):
         layout = QVBoxLayout()
-        self.setLayout(layout)
-
-        font_label = QFont()
-        font_label.setBold(True)
+        form_layout = QFormLayout()
 
         # --- Data Pembeli ---
-        pembeli_group = QGroupBox("Data Pembeli")
-        pembeli_layout = QFormLayout()
-
         self.nama_input = QLineEdit()
-
         self.nik_input = QLineEdit()
-        nik_validator = QRegularExpressionValidator(QRegularExpression(r"\d{0,16}"))  # Max 16 digit
-        self.nik_input.setValidator(nik_validator)
-
         self.tempat_lahir_input = QLineEdit()
-
         self.tanggal_lahir_input = QDateEdit()
         self.tanggal_lahir_input.setCalendarPopup(True)
-        self.tanggal_lahir_input.setDate(QDate.currentDate().addYears(-20))
-        self.tanggal_lahir_input.setDisplayFormat("dd/MM/yyyy")
-
+        self.tanggal_lahir_input.setDisplayFormat("dd-MM-yyyy")
+        self.tanggal_lahir_input.setDate(QDate.currentDate())
         self.alamat_input = QLineEdit()
-
-        self.hp_input = QLineEdit()
-        hp_validator = QRegularExpressionValidator(QRegularExpression(r"\d{0,13}"))  # Max 13 digit
-        self.hp_input.setValidator(hp_validator)
-
+        self.no_hp_input = QLineEdit()
         self.email_input = QLineEdit()
 
-        pembeli_layout.addRow(QLabel("Nama Lengkap:"), self.nama_input)
-        pembeli_layout.addRow(QLabel("NIK:"), self.nik_input)
-        pembeli_layout.addRow(QLabel("Tempat Lahir:"), self.tempat_lahir_input)
-        pembeli_layout.addRow(QLabel("Tanggal Lahir:"), self.tanggal_lahir_input)
-        pembeli_layout.addRow(QLabel("Alamat:"), self.alamat_input)
-        pembeli_layout.addRow(QLabel("No. HP:"), self.hp_input)
-        pembeli_layout.addRow(QLabel("Email:"), self.email_input)
+        self.btn_upload_ktp = QPushButton("📷 Upload & Scan Foto KTP")
+        self.btn_upload_ktp.clicked.connect(self.upload_ktp)
 
-        pembeli_group.setLayout(pembeli_layout)
-        layout.addWidget(pembeli_group)
+        form_layout.addRow("Nama:", self.nama_input)
+        form_layout.addRow("NIK:", self.nik_input)
+        form_layout.addRow("Tempat Lahir:", self.tempat_lahir_input)
+        form_layout.addRow("Tanggal Lahir:", self.tanggal_lahir_input)
+        form_layout.addRow("Alamat:", self.alamat_input)
+        form_layout.addRow("No. HP:", self.no_hp_input)
+        form_layout.addRow("Email:", self.email_input)
+        form_layout.addRow("Foto KTP:", self.btn_upload_ktp)
 
         # --- Data Pemesanan ---
-        pemesanan_group = QGroupBox("Data Pemesanan")
-        pemesanan_layout = QFormLayout()
-
-        self.proyek_combo = QComboBox()
-        self.proyek_combo.addItems(["Kawasan NEW CITY", "Kawasan GREEN VILLAGE"])
-
-        self.tipe_combo = QComboBox()
-        self.tipe_combo.addItems([
-            "DIAMOND POJOK", "DIAMOND",
-            "SAPHIRE A", "SAPHIRE B", "RUBY"
-        ])
-        self.tipe_combo.currentTextChanged.connect(self.hitung_pembayaran)
+        self.proyek_input = QComboBox()
+        self.proyek_input.addItems(["Kawasan NEW CITY"])
 
         self.blok_input = QLineEdit()
 
-        self.skema_combo = QComboBox()
-        self.skema_combo.addItems(["Tunai Bertahap", "KPR"])
+        self.tipe_input = QComboBox()
+        self.tipe_input.addItems(["DIAMOND POJOK", "DIAMOND", "SAPHIRE A", "SAPHIRE B", "RUBY"])
 
-        pemesanan_layout.addRow(QLabel("Proyek:"), self.proyek_combo)
-        pemesanan_layout.addRow(QLabel("Tipe Rumah:"), self.tipe_combo)
-        pemesanan_layout.addRow(QLabel("Blok/Kavling:"), self.blok_input)
-        pemesanan_layout.addRow(QLabel("Skema Pembayaran:"), self.skema_combo)
+        self.harga_input = QLineEdit()
+        self.harga_input.setReadOnly(True)
 
-        pemesanan_group.setLayout(pemesanan_layout)
-        layout.addWidget(pemesanan_group)
+        self.btn_hitung = QPushButton("Hitung Pembayaran")
+        self.btn_hitung.clicked.connect(self.hitung_pembayaran)
 
-        # --- Detail Pembayaran ---
-        pembayaran_group = QGroupBox("Detail Pembayaran")
-        pembayaran_layout = QFormLayout()
+        self.hasil_label = QLabel("")
 
-        self.harga_label = QLabel("Rp 0")
-        self.harga_label.setStyleSheet("font-weight: bold; color: #2c3e50;")
-        self.utj_label = QLabel("Rp 0")
-        self.dp_label = QLabel("Rp 0")
-        self.cicilan_label = QLabel("Rp 0")
+        form_layout.addRow("Nama Proyek:", self.proyek_input)
+        form_layout.addRow("Blok/Kavling:", self.blok_input)
+        form_layout.addRow("Tipe Rumah:", self.tipe_input)
+        form_layout.addRow("Harga Jual:", self.harga_input)
+        form_layout.addRow(self.btn_hitung)
+        form_layout.addRow(self.hasil_label)
 
-        pembayaran_layout.addRow(QLabel("Harga Rumah:"), self.harga_label)
-        pembayaran_layout.addRow(QLabel("Uang Tanda Jadi (UTJ):"), self.utj_label)
-        pembayaran_layout.addRow(QLabel("Down Payment (DP):"), self.dp_label)
-        pembayaran_layout.addRow(QLabel("Cicilan per Bulan:"), self.cicilan_label)
+        # --- Tombol Simpan ---
+        self.btn_simpan = QPushButton("Simpan Transaksi")
+        self.btn_simpan.clicked.connect(self.simpan_transaksi)
 
-        pembayaran_group.setLayout(pembayaran_layout)
-        layout.addWidget(pembayaran_group)
+        layout.addLayout(form_layout)
+        layout.addWidget(self.btn_simpan)
+        self.setLayout(layout)
 
-        # --- Tombol ---
-        button_layout = QHBoxLayout()
+    def upload_ktp(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Pilih Foto KTP", "", "Images (*.png *.jpg *.jpeg)")
+        if file_path:
+            try:
+                # Simpan file ke folder lokal
+                target_folder = "assets/foto_ktp"
+                os.makedirs(target_folder, exist_ok=True)
+                file_name = os.path.basename(file_path)
+                target_path = os.path.join(target_folder, file_name)
+                shutil.copy(file_path, target_path)
+                self.foto_ktp_path = target_path
 
-        self.simpan_btn = QPushButton("Simpan Transaksi")
-        self.simpan_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #27ae60;
-                color: white;
-                padding: 8px 16px;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #219653;
-            }
-        """)
-        self.simpan_btn.clicked.connect(self.simpan_transaksi)
+                # Jalankan OCR
+                data = extract_ktp_data(target_path)
+                self.nama_input.setText(data.get("nama", ""))
+                self.nik_input.setText(data.get("nik", ""))
 
-        self.batal_btn = QPushButton("Batal")
-        self.batal_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #e74c3c;
-                color: white;
-                padding: 8px 16px;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #c0392b;
-            }
-        """)
-        self.batal_btn.clicked.connect(self.reject)
+                ttl_text = data.get("ttl", "")
+                if ',' in ttl_text:
+                    tempat, tgl = ttl_text.split(',', 1)
+                    self.tempat_lahir_input.setText(tempat.strip())
+                    try:
+                        tgl = tgl.strip().replace('-', '/').replace('.', '/')
+                        qdate = QDate.fromString(tgl, "dd/MM/yyyy")
+                        if qdate.isValid():
+                            self.tanggal_lahir_input.setDate(qdate)
+                    except Exception:
+                        pass
+                else:
+                    self.tempat_lahir_input.setText(ttl_text)
 
-        button_layout.addStretch()
-        button_layout.addWidget(self.batal_btn)
-        button_layout.addWidget(self.simpan_btn)
+                self.alamat_input.setText(data.get("alamat", ""))
 
-        layout.addLayout(button_layout)
-
-        self.hitung_pembayaran()
+                QMessageBox.information(self, "Sukses", "Foto KTP berhasil diproses dan diisi otomatis.")
+            except Exception as e:
+                QMessageBox.critical(self, "Gagal", f"Gagal membaca gambar:\n{e}")
 
     def hitung_pembayaran(self):
-        tipe = self.tipe_combo.currentText()
-        harga_tipe = {
+        tipe = self.tipe_input.currentText()
+        harga_dict = {
             "DIAMOND POJOK": 2090500000,
             "DIAMOND": 1615500000,
             "SAPHIRE A": 910500000,
             "SAPHIRE B": 805500000,
             "RUBY": 660500000
         }
+        harga = harga_dict.get(tipe, 0)
+        self.harga_input.setText(str(harga))
 
-        harga_jual = harga_tipe.get(tipe, 0)
-        utj = 10000000
-        sisa_setelah_utj = harga_jual - utj
+        utj = 10_000_000
+        sisa_setelah_utj = harga - utj
         dp = int(sisa_setelah_utj * 0.2)
         cicilan = int((sisa_setelah_utj - dp) / 12)
 
-        self._harga = harga_jual
-        self._utj = utj
-        self._dp = dp
-        self._cicilan = cicilan
-
-        self.harga_label.setText(f"Rp {harga_jual:,}")
-        self.utj_label.setText(f"Rp {utj:,}")
-        self.dp_label.setText(f"Rp {dp:,}")
-        self.cicilan_label.setText(f"Rp {cicilan:,}")
+        self.hasil_label.setText(
+            f"Harga: Rp{harga:,}\nUTJ: Rp{utj:,}\nDP: Rp{dp:,}\nCicilan (12x): Rp{cicilan:,}/bulan"
+        )
 
     def simpan_transaksi(self):
-        if not self.nama_input.text().strip():
-            QMessageBox.warning(self, "Peringatan", "Nama harus diisi!")
-            return
-        if len(self.nik_input.text()) != 16:
-            QMessageBox.warning(self, "Peringatan", "NIK harus 16 digit!")
-            return
-        if not self.blok_input.text().strip():
-            QMessageBox.warning(self, "Peringatan", "Blok/Kavling harus diisi!")
-            return
-
-        data = {
-            "nama": self.nama_input.text().strip(),
-            "nik": self.nik_input.text().strip(),
-            "tempat_lahir": self.tempat_lahir_input.text().strip(),
-            "tanggal_lahir": self.tanggal_lahir_input.date().toString("yyyy-MM-dd"),
-            "alamat": self.alamat_input.text().strip(),
-            "no_hp": self.hp_input.text().strip(),
-            "email": self.email_input.text().strip(),
-            "proyek": self.proyek_combo.currentText(),
-            "tipe_rumah": self.tipe_combo.currentText(),
-            "blok_kavling": self.blok_input.text().strip(),
-            "harga_jual": self._harga,
-            "skema_pembayaran": self.skema_combo.currentText(),
-            "utj": self._utj,
-            "dp": self._dp,
-            "cicilan_per_bulan": self._cicilan,
-        }
-
         try:
+            ttl_str = f"{self.tempat_lahir_input.text()}, {self.tanggal_lahir_input.date().toString('dd-MM-yyyy')}"
+            data = {
+                "nama": self.nama_input.text(),
+                "nik": self.nik_input.text(),
+                "ttl": ttl_str,
+                "alamat": self.alamat_input.text(),
+                "no_hp": self.no_hp_input.text(),
+                "email": self.email_input.text(),
+                "foto_ktp": self.foto_ktp_path,
+                "proyek": self.proyek_input.currentText(),
+                "blok": self.blok_input.text(),
+                "tipe": self.tipe_input.currentText(),
+                "harga": self.harga_input.text()
+            }
+
+            if not data["nama"] or not data["nik"] or not data["blok"]:
+                QMessageBox.warning(self, "Validasi", "Pastikan nama, NIK, dan blok diisi.")
+                return
+
             self.controller.simpan_transaksi(data)
-            QMessageBox.information(self, "Berhasil", "Transaksi berhasil disimpan!")
+            QMessageBox.information(self, "Sukses", "Transaksi berhasil disimpan.")
             self.accept()
         except Exception as e:
-            QMessageBox.critical(self, "Gagal", f"Gagal menyimpan transaksi:\n{str(e)}")
+            QMessageBox.critical(self, "Gagal", f"Gagal menyimpan transaksi:\n{e}")

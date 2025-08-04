@@ -9,7 +9,7 @@ class TransaksiModel:
         query = """
             INSERT INTO transaksi (nama, nik, tempat_lahir, tanggal_lahir, alamat, no_hp, email,
                                    proyek, blok_kavling, tipe_rumah, harga_jual, skema_pembayaran,
-                                   utj, dp, cicilan_per_bulan)
+                                   utj, dp, cicilan_per_bulan, foto_ktp)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         cursor.execute(query, (
