@@ -49,7 +49,7 @@ class DashboardView(QWidget):
 
         # Tabel Transaksi
         self.tabel = QTableWidget()
-        self.tabel.setColumnCount(16)  # Sesuai jumlah label
+        self.tabel.setColumnCount(16)
         self.tabel.setHorizontalHeaderLabels([
             "ID", "Nama", "NIK", "Tempat Lahir", "Tanggal Lahir", 
             "Alamat", "No HP", "Email", "Proyek", "Blok/Kavling", 
@@ -81,11 +81,13 @@ class DashboardView(QWidget):
                 for col_index, value in enumerate(transaksi):
                     item = QTableWidgetItem()
 
-                    if col_index in [11, 13, 14, 15]:  # Kolom harga dan pembayaran
-                        if value is not None:
-                            item.setText(f"Rp {int(value):,}")
-                        else:
-                            item.setText("Rp 0")
+                    # Kolom Harga Jual, UTJ, DP, Cicilan per bulan
+                    if col_index in [11, 13, 14, 15]:
+                        try:
+                            nilai = int(value)
+                            item.setText(f"Rp {nilai:,}")
+                        except (ValueError, TypeError):
+                            item.setText(str(value))  # fallback jika tidak bisa diubah ke int
                     else:
                         item.setText(str(value) if value is not None else "-")
 

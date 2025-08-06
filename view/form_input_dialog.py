@@ -4,8 +4,6 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import QDate
 from controller.transaksi_controller import TransaksiController
-from controller.ocr_helper import extract_ktp_data
-
 import os
 import shutil
 
@@ -16,7 +14,13 @@ class FormInputDialog(QDialog):
         self.setWindowTitle("Form Input Transaksi")
         self.controller = TransaksiController()
         self.foto_ktp_path = ""
-
+        self.harga_dict = {
+            "DIAMOND POJOK": 2090500000,
+            "DIAMOND": 1615500000,
+            "SAPHIRE A": 910500000,
+            "SAPHIRE B": 805500000,
+            "RUBY": 660500000
+        }
         self.init_ui()
 
     def init_ui(self):
@@ -35,7 +39,7 @@ class FormInputDialog(QDialog):
         self.no_hp_input = QLineEdit()
         self.email_input = QLineEdit()
 
-        self.btn_upload_ktp = QPushButton("📷 Upload & Scan Foto KTP")
+        self.btn_upload_ktp = QPushButton("📁 Upload Foto KTP")
         self.btn_upload_ktp.clicked.connect(self.upload_ktp)
 
         form_layout.addRow("Nama:", self.nama_input)
@@ -50,24 +54,23 @@ class FormInputDialog(QDialog):
         # --- Data Pemesanan ---
         self.proyek_input = QComboBox()
         self.proyek_input.addItems(["Kawasan NEW CITY"])
-
         self.blok_input = QLineEdit()
 
         self.tipe_input = QComboBox()
-        self.tipe_input.addItems(["DIAMOND POJOK", "DIAMOND", "SAPHIRE A", "SAPHIRE B", "RUBY"])
+        self.tipe_input.addItems(list(self.harga_dict.keys()))
+        self.tipe_input.currentIndexChanged.connect(self.hitung_pembayaran)
 
         self.harga_input = QLineEdit()
         self.harga_input.setReadOnly(True)
 
         self.btn_hitung = QPushButton("Hitung Pembayaran")
         self.btn_hitung.clicked.connect(self.hitung_pembayaran)
-
         self.hasil_label = QLabel("")
 
         form_layout.addRow("Nama Proyek:", self.proyek_input)
         form_layout.addRow("Blok/Kavling:", self.blok_input)
         form_layout.addRow("Tipe Rumah:", self.tipe_input)
-        form_layout.addRow("Harga Jual:", self.harga_input)
+        form_layout.addRow("Harga Rumah:", self.harga_input)
         form_layout.addRow(self.btn_hitung)
         form_layout.addRow(self.hasil_label)
 
@@ -79,87 +82,75 @@ class FormInputDialog(QDialog):
         layout.addWidget(self.btn_simpan)
         self.setLayout(layout)
 
+        # Hitung awal
+        self.hitung_pembayaran()
+
     def upload_ktp(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Pilih Foto KTP", "", "Images (*.png *.jpg *.jpeg)")
         if file_path:
             try:
-                # Simpan file ke folder lokal
                 target_folder = "assets/foto_ktp"
                 os.makedirs(target_folder, exist_ok=True)
                 file_name = os.path.basename(file_path)
                 target_path = os.path.join(target_folder, file_name)
                 shutil.copy(file_path, target_path)
                 self.foto_ktp_path = target_path
-
-                # Jalankan OCR
-                data = extract_ktp_data(target_path)
-                self.nama_input.setText(data.get("nama", ""))
-                self.nik_input.setText(data.get("nik", ""))
-
-                ttl_text = data.get("ttl", "")
-                if ',' in ttl_text:
-                    tempat, tgl = ttl_text.split(',', 1)
-                    self.tempat_lahir_input.setText(tempat.strip())
-                    try:
-                        tgl = tgl.strip().replace('-', '/').replace('.', '/')
-                        qdate = QDate.fromString(tgl, "dd/MM/yyyy")
-                        if qdate.isValid():
-                            self.tanggal_lahir_input.setDate(qdate)
-                    except Exception:
-                        pass
-                else:
-                    self.tempat_lahir_input.setText(ttl_text)
-
-                self.alamat_input.setText(data.get("alamat", ""))
-
-                QMessageBox.information(self, "Sukses", "Foto KTP berhasil diproses dan diisi otomatis.")
+                QMessageBox.information(self, "Sukses", "Foto KTP berhasil diunggah.")
             except Exception as e:
-                QMessageBox.critical(self, "Gagal", f"Gagal membaca gambar:\n{e}")
+                QMessageBox.critical(self, "Gagal", f"Gagal menyimpan file:\n{e}")
 
     def hitung_pembayaran(self):
         tipe = self.tipe_input.currentText()
-        harga_dict = {
-            "DIAMOND POJOK": 2090500000,
-            "DIAMOND": 1615500000,
-            "SAPHIRE A": 910500000,
-            "SAPHIRE B": 805500000,
-            "RUBY": 660500000
-        }
-        harga = harga_dict.get(tipe, 0)
-        self.harga_input.setText(str(harga))
-
+        harga = self.harga_dict.get(tipe, 0)
         utj = 10_000_000
-        sisa_setelah_utj = harga - utj
-        dp = int(sisa_setelah_utj * 0.2)
-        cicilan = int((sisa_setelah_utj - dp) / 12)
+        sisa = harga - utj
+        dp = int(sisa * 0.2)
+        cicilan = int((sisa - dp) / 12)
 
+        self.harga_input.setText(f"{harga}")
         self.hasil_label.setText(
-            f"Harga: Rp{harga:,}\nUTJ: Rp{utj:,}\nDP: Rp{dp:,}\nCicilan (12x): Rp{cicilan:,}/bulan"
+            f"Harga: Rp{harga:,}\n"
+            f"UTJ: Rp{utj:,}\n"
+            f"DP: Rp{dp:,}\n"
+            f"Cicilan (12x): Rp{cicilan:,}/bulan"
         )
 
     def simpan_transaksi(self):
         try:
-            ttl_str = f"{self.tempat_lahir_input.text()}, {self.tanggal_lahir_input.date().toString('dd-MM-yyyy')}"
+            tipe = self.tipe_input.currentText()
+            harga = self.harga_dict.get(tipe, 0)
+            utj = 10_000_000
+            dp = int((harga - utj) * 0.2)
+            cicilan = int((harga - utj - dp) / 12)
+
             data = {
-                "nama": self.nama_input.text(),
-                "nik": self.nik_input.text(),
-                "ttl": ttl_str,
-                "alamat": self.alamat_input.text(),
-                "no_hp": self.no_hp_input.text(),
-                "email": self.email_input.text(),
+                "nama": self.nama_input.text().strip(),
+                "nik": self.nik_input.text().strip(),
+                "tempat_lahir": self.tempat_lahir_input.text().strip(),
+                "tanggal_lahir": self.tanggal_lahir_input.date().toPython(),
+                "alamat": self.alamat_input.text().strip(),
+                "no_hp": self.no_hp_input.text().strip(),
+                "email": self.email_input.text().strip(),
                 "foto_ktp": self.foto_ktp_path,
-                "proyek": self.proyek_input.currentText(),
-                "blok": self.blok_input.text(),
-                "tipe": self.tipe_input.currentText(),
-                "harga": self.harga_input.text()
+                "nama_proyek": self.proyek_input.currentText(),
+                "blok_kavling": self.blok_input.text().strip(),
+                "tipe_rumah": tipe,
+                "harga_rumah": harga,
+                "skema_pembayaran": "Cicilan 12x",
+                "utj": utj,
+                "dp": dp,
+                "cicilan_per_bulan": cicilan
             }
 
-            if not data["nama"] or not data["nik"] or not data["blok"]:
-                QMessageBox.warning(self, "Validasi", "Pastikan nama, NIK, dan blok diisi.")
-                return
+            # Validasi minimal
+            for field in ["nama", "nik", "tempat_lahir", "blok_kavling"]:
+                if not data[field]:
+                    QMessageBox.warning(self, "Validasi", f"{field.replace('_', ' ').title()} wajib diisi.")
+                    return
 
             self.controller.simpan_transaksi(data)
             QMessageBox.information(self, "Sukses", "Transaksi berhasil disimpan.")
             self.accept()
+
         except Exception as e:
             QMessageBox.critical(self, "Gagal", f"Gagal menyimpan transaksi:\n{e}")
