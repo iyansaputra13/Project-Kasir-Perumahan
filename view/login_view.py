@@ -1,27 +1,29 @@
 from PySide6.QtCore import Signal, Qt, QTimer
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QLabel, 
     QLineEdit, QPushButton, QMessageBox, QHBoxLayout,
     QApplication
 )
 from controller.auth_controller import AuthController
+import os
 
 class LoginView(QMainWindow):
     login_success = Signal(dict)
     login_closed = Signal()
-    
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Login - Kasir Perumahan")
-        self.setFixedSize(450, 350)
+        self.setFixedSize(450, 400)
         self.setWindowFlags(Qt.WindowCloseButtonHint | Qt.WindowMinimizeButtonHint)
-        
+
         self.auth_controller = AuthController()
         self.login_attempts = 0
         self.max_attempts = 3
-        self.lockout_duration = 30000  # 30 detik dalam milidetik
+        self.lockout_duration = 30000  # 30 detik
 
-        self._login_successful = False  # Flag untuk mendeteksi login berhasil
+        self._login_successful = False
 
         self.init_ui()
         QTimer.singleShot(100, self.username_input.setFocus)
@@ -32,9 +34,19 @@ class LoginView(QMainWindow):
         layout = QVBoxLayout(central)
         layout.setContentsMargins(30, 20, 30, 20)
 
+        # Logo Image (opsional)
+        logo_path = "assets/splash.png"
+        if os.path.exists(logo_path):
+            logo = QLabel()
+            pixmap = QPixmap(logo_path).scaled(100, 100, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            logo.setPixmap(pixmap)
+            logo.setAlignment(Qt.AlignCenter)
+            layout.addWidget(logo)
+
+        # Header
         header = QLabel("LOGIN SYSTEM")
         header.setAlignment(Qt.AlignCenter)
-        header.setStyleSheet("font-size: 24px; font-weight: bold; color: #2c3e50; margin-bottom: 30px;")
+        header.setStyleSheet("font-size: 24px; font-weight: bold; color: #2c3e50; margin-bottom: 20px;")
         layout.addWidget(header)
 
         # Username
@@ -61,7 +73,7 @@ class LoginView(QMainWindow):
         password_row.addWidget(self.password_input)
         layout.addLayout(password_row)
 
-        # Login button
+        # Tombol Login
         self.login_btn = QPushButton("LOGIN")
         self.login_btn.setMinimumHeight(40)
         self.login_btn.setStyleSheet("""
@@ -80,8 +92,9 @@ class LoginView(QMainWindow):
         self.login_btn.clicked.connect(self.try_login)
         layout.addWidget(self.login_btn)
 
-        # Footer
         layout.addStretch()
+
+        # Footer
         version = QLabel("Kasir Perumahan v1.0")
         version.setAlignment(Qt.AlignCenter)
         version.setStyleSheet("color: #7f8c8d; font-size: 10px;")
@@ -108,7 +121,7 @@ class LoginView(QMainWindow):
         try:
             user = self.auth_controller.authenticate(username, password)
             if user:
-                self._login_successful = True  # Flag set saat login sukses
+                self._login_successful = True
                 self.login_success.emit(user)
                 self.close()
             else:
