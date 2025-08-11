@@ -60,6 +60,7 @@ class LoginView(QMainWindow):
         self.username_input.setStyleSheet("""
             QLineEdit {
                 background: white;
+                color: black; /* Pastikan teks hitam */
                 padding-left: 6px;
                 border-radius: 5px;
             }
@@ -75,7 +76,10 @@ class LoginView(QMainWindow):
 
         password_container = QWidget()
         password_container.setFixedHeight(35)
-        password_container.setStyleSheet("background: white; border-radius: 5px;")
+        password_container.setStyleSheet("""
+            background: white;
+            border-radius: 5px;
+        """)
 
         password_layout = QHBoxLayout(password_container)
         password_layout.setContentsMargins(6, 0, 6, 0)
@@ -84,21 +88,26 @@ class LoginView(QMainWindow):
         self.password_input = QLineEdit()
         self.password_input.setPlaceholderText("Masukkan password")
         self.password_input.setEchoMode(QLineEdit.Password)
-        self.password_input.setStyleSheet("border: none;")
+        self.password_input.setStyleSheet("""
+            QLineEdit {
+                border: none;
+                color: black; /* Pastikan teks hitam */
+            }
+        """)
         self.password_input.returnPressed.connect(self.try_login)
 
         self.toggle_password_btn = QPushButton("👁️")
         self.toggle_password_btn.setCheckable(True)
         self.toggle_password_btn.setFixedSize(30, 30)
         self.toggle_password_btn.setStyleSheet("""
-    QPushButton {
-        border: none;
-        background: transparent;
-        font-size: 14px;
-        margin-left: 6px;
-    }
-    QPushButton:checked { color: #2980b9; }
-     """)
+            QPushButton {
+                border: none;
+                background: transparent;
+                font-size: 14px;
+                margin-left: 6px;
+            }
+            QPushButton:checked { color: #2980b9; }
+        """)
         self.toggle_password_btn.clicked.connect(self.toggle_password_visibility)
 
         password_layout.addWidget(self.password_input)

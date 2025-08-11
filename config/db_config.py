@@ -3,9 +3,10 @@
 import mysql.connector
 
 db_config = {
-    'host': '192.168.1.19',
-    'user': 'hari',
-    'password': 'Hari123!',
+    'host': 'localhost',
+    'user': 'root',
+    'password': 'Kasirperumahan133123!',
+    'database': 'kasir_perumahan',
 }
 
 def get_connection():
