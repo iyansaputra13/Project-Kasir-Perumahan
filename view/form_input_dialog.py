@@ -14,6 +14,7 @@ class FormInputDialog(QDialog):
         self.setWindowTitle("Form Input Transaksi")
         self.controller = TransaksiController()
         self.foto_ktp_path = ""
+        self.transaksi_id = None  # untuk edit
         self.harga_dict = {
             "DIAMOND POJOK": 2090500000,
             "DIAMOND": 1615500000,
@@ -82,7 +83,6 @@ class FormInputDialog(QDialog):
         layout.addWidget(self.btn_simpan)
         self.setLayout(layout)
 
-        # Hitung awal
         self.hitung_pembayaran()
 
     def upload_ktp(self):
@@ -102,26 +102,54 @@ class FormInputDialog(QDialog):
     def hitung_pembayaran(self):
         tipe = self.tipe_input.currentText()
         harga = self.harga_dict.get(tipe, 0)
-        utj = 10_000_000
-        sisa = harga - utj
-        dp = int(sisa * 0.2)
-        cicilan = int((sisa - dp) / 12)
+
+        utj = 10_000_000  # pembayaran awal
+        dp_total = int((harga - utj) * 0.2)  # 20% dari sisa harga
+        cicilan_per_bulan = int(dp_total / 12)  # DP dicicil 12 bulan
 
         self.harga_input.setText(f"{harga}")
         self.hasil_label.setText(
             f"Harga: Rp{harga:,}\n"
-            f"UTJ: Rp{utj:,}\n"
-            f"DP: Rp{dp:,}\n"
-            f"Cicilan (12x): Rp{cicilan:,}/bulan"
+            f"UTJ (bayar di awal): Rp{utj:,}\n"
+            f"Total DP: Rp{dp_total:,} (dicicil 12 bulan)\n"
+            f"Cicilan per bulan: Rp{cicilan_per_bulan:,}\n"
+            f"Catatan: Pembayaran bulanan bisa sebagian, sisa akan tercatat."
         )
+
+    def load_data(self, data):
+        self.transaksi_id = data[0]
+        self.nama_input.setText(str(data[1]))
+        self.nik_input.setText(str(data[2]))
+        self.tempat_lahir_input.setText(str(data[3]))
+
+        try:
+            if isinstance(data[4], str):
+                y, m, d = map(int, data[4].split("-"))
+                self.tanggal_lahir_input.setDate(QDate(y, m, d))
+            elif hasattr(data[4], "year"):
+                self.tanggal_lahir_input.setDate(QDate(data[4].year, data[4].month, data[4].day))
+        except Exception as e:
+            print("Gagal set tanggal:", e)
+
+        self.alamat_input.setText(str(data[5]))
+        self.no_hp_input.setText(str(data[6]))
+        self.email_input.setText(str(data[7]))
+        self.foto_ktp_path = str(data[8]) if data[8] else ""
+        self.proyek_input.setCurrentText(str(data[9]))
+        self.blok_input.setText(str(data[10]))
+        self.tipe_input.setCurrentText(str(data[11]))
+        self.harga_input.setText(str(data[12]))
+
+        self.hitung_pembayaran()
 
     def simpan_transaksi(self):
         try:
             tipe = self.tipe_input.currentText()
             harga = self.harga_dict.get(tipe, 0)
+
             utj = 10_000_000
-            dp = int((harga - utj) * 0.2)
-            cicilan = int((harga - utj - dp) / 12)
+            dp_total = int((harga - utj) * 0.2)
+            cicilan_per_bulan = int(dp_total / 12)
 
             data = {
                 "nama": self.nama_input.text().strip(),
@@ -136,20 +164,25 @@ class FormInputDialog(QDialog):
                 "blok_kavling": self.blok_input.text().strip(),
                 "tipe_rumah": tipe,
                 "harga_rumah": harga,
-                "skema_pembayaran": "Cicilan 12x",
+                "skema_pembayaran": "Cicilan 12x DP",
                 "utj": utj,
-                "dp": dp,
-                "cicilan_per_bulan": cicilan
+                "dp_total": dp_total,
+                "cicilan_per_bulan": cicilan_per_bulan,
+                "catatan": "Pembayaran bulanan bisa sebagian, sisa akan tercatat"
             }
 
-            # Validasi minimal
             for field in ["nama", "nik", "tempat_lahir", "blok_kavling"]:
                 if not data[field]:
                     QMessageBox.warning(self, "Validasi", f"{field.replace('_', ' ').title()} wajib diisi.")
                     return
 
-            self.controller.simpan_transaksi(data)
-            QMessageBox.information(self, "Sukses", "Transaksi berhasil disimpan.")
+            if self.transaksi_id:
+                self.controller.update_transaksi(self.transaksi_id, data)
+                QMessageBox.information(self, "Sukses", "Transaksi berhasil diperbarui.")
+            else:
+                self.controller.simpan_transaksi(data)
+                QMessageBox.information(self, "Sukses", "Transaksi berhasil disimpan.")
+
             self.accept()
 
         except Exception as e:
