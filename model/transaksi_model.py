@@ -2,6 +2,10 @@ from config.db_config import get_connection
 
 class TransaksiModel:
     def simpan_transaksi(self, data):
+        # Pastikan key 'dp' ada
+        if 'dp' not in data:
+            data['dp'] = data.get('dp_total', 0)
+
         conn = get_connection()
         cursor = conn.cursor()
         query = """
@@ -37,16 +41,15 @@ class TransaksiModel:
     def ambil_semua_transaksi(self):
         conn = get_connection()
         cursor = conn.cursor()
-
+        # Urutan kolom disamakan dengan insert/update agar data tidak tertukar
         query = """
             SELECT 
                 id, nama, nik, tempat_lahir, tanggal_lahir, alamat, no_hp, email,
                 nama_proyek, blok_kavling, tipe_rumah, harga_rumah, skema_pembayaran,
-                utj, dp, cicilan_per_bulan
+                utj, dp, cicilan_per_bulan, foto_ktp
             FROM transaksi
             ORDER BY id ASC
         """
-
         cursor.execute(query)
         results = cursor.fetchall()
         cursor.close()
@@ -54,9 +57,11 @@ class TransaksiModel:
         return results
 
     def update_transaksi(self, transaksi_id, data_baru):
+        if 'dp' not in data_baru:
+            data_baru['dp'] = data_baru.get('dp_total', 0)
+
         conn = get_connection()
         cursor = conn.cursor()
-
         query = """
             UPDATE transaksi SET
                 nama = %s,
@@ -77,7 +82,6 @@ class TransaksiModel:
                 foto_ktp = %s
             WHERE id = %s
         """
-
         cursor.execute(query, (
             data_baru['nama'],
             data_baru['nik'],
@@ -97,7 +101,6 @@ class TransaksiModel:
             data_baru['foto_ktp'],
             transaksi_id
         ))
-
         conn.commit()
         cursor.close()
         conn.close()
@@ -105,10 +108,8 @@ class TransaksiModel:
     def hapus_transaksi(self, transaksi_id):
         conn = get_connection()
         cursor = conn.cursor()
-
         query = "DELETE FROM transaksi WHERE id = %s"
         cursor.execute(query, (transaksi_id,))
-
         conn.commit()
         cursor.close()
         conn.close()
