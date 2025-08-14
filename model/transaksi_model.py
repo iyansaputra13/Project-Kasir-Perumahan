@@ -2,7 +2,6 @@ from config.db_config import get_connection
 
 class TransaksiModel:
     def simpan_transaksi(self, data):
-        # Pastikan key 'dp' ada
         if 'dp' not in data:
             data['dp'] = data.get('dp_total', 0)
 
@@ -41,7 +40,6 @@ class TransaksiModel:
     def ambil_semua_transaksi(self):
         conn = get_connection()
         cursor = conn.cursor()
-        # Urutan kolom disamakan dengan insert/update agar data tidak tertukar
         query = """
             SELECT 
                 id, nama, nik, tempat_lahir, tanggal_lahir, alamat, no_hp, email,
@@ -110,6 +108,55 @@ class TransaksiModel:
         cursor = conn.cursor()
         query = "DELETE FROM transaksi WHERE id = %s"
         cursor.execute(query, (transaksi_id,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+    # =======================
+    # Tambahan untuk cicilan DP
+    # =======================
+    def ambil_cicilan_dp(self, transaksi_id):
+        conn = get_connection()
+        cursor = conn.cursor()
+        query = """
+            SELECT 
+                id, bulan_ke, cicilan, bayar, sisa, tanggal_bayar, catatan
+            FROM cicilan_dp
+            WHERE transaksi_id = %s
+            ORDER BY bulan_ke ASC
+        """
+        cursor.execute(query, (transaksi_id,))
+        results = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return results
+
+    def simpan_cicilan_dp(self, transaksi_id, data_cicilan):
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # Hapus data cicilan lama untuk transaksi ini
+        delete_query = "DELETE FROM cicilan_dp WHERE transaksi_id = %s"
+        cursor.execute(delete_query, (transaksi_id,))
+
+        # Insert ulang data cicilan baru
+        insert_query = """
+            INSERT INTO cicilan_dp (
+                transaksi_id, bulan_ke, cicilan, bayar, sisa, tanggal_bayar, catatan
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """
+        for cicilan in data_cicilan:
+            cursor.execute(insert_query, (
+                transaksi_id,
+                cicilan.get('bulan_ke'),
+                cicilan.get('cicilan', 0),
+                cicilan.get('bayar', 0),
+                cicilan.get('sisa', 0),
+                cicilan.get('tanggal_bayar'),
+                cicilan.get('catatan', '')
+            ))
+
         conn.commit()
         cursor.close()
         conn.close()
