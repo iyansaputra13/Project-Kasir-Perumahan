@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QDate
 from openpyxl import Workbook
-from config.supabase_config import get_supabase  # Menggunakan config yang benar
+from utils.supabase_client import supabase  # koneksi Supabase
 
 # ---------- helper ----------
 def idr(n: int) -> str:
@@ -40,17 +40,15 @@ class DetailPembayaranView(QDialog):
     COL_CICILAN = 1
     COL_TANGGAL = 2
 
-    def __init__(self, data_transaksi, parent=None):
+    def __init__(self, data_transaksi: dict, parent=None):
         super().__init__(parent)
-        
-        # Inisialisasi Supabase client
-        self.supabase = get_supabase()
 
         self.data = data_transaksi
-        self.transaksi_id = int(self.data[0])
-        self.nama_pembeli = str(self.data[1] or "")
-        self.dp_total = int(self.data[14] or 0)
-        self.cicilan_per_bulan = int(self.data[15] or 0)
+        # ✅ sekarang pakai key dictionary, bukan index
+        self.transaksi_id = int(self.data.get("id", 0))
+        self.nama_pembeli = str(self.data.get("nama_pembeli", ""))
+        self.dp_total = int(self.data.get("dp_total", 0))
+        self.cicilan_per_bulan = int(self.data.get("cicilan_per_bulan", 0))
         self.tenor = self._calc_default_tenor(self.dp_total, self.cicilan_per_bulan)
 
         self.setWindowTitle(f"Cicilan DP – {self.nama_pembeli}")
@@ -143,7 +141,7 @@ class DetailPembayaranView(QDialog):
 
     def _load_or_generate(self):
         try:
-            res = self.supabase.table("cicilan_dp").select("*").eq("transaksi_id", self.transaksi_id).order("bulan_ke").execute()
+            res = supabase.table("cicilan_dp").select("*").eq("transaksi_id", self.transaksi_id).order("bulan_ke").execute()
             rows = res.data
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Gagal mengambil cicilan:\n{str(e)}")
@@ -254,10 +252,8 @@ class DetailPembayaranView(QDialog):
     def _save_all(self):
         try:
             payload = self._collect_payload()
-            # Hapus data lama
-            self.supabase.table("cicilan_dp").delete().eq("transaksi_id", self.transaksi_id).execute()
-            # Insert data baru
-            result = self.supabase.table("cicilan_dp").insert(payload).execute()
+            supabase.table("cicilan_dp").delete().eq("transaksi_id", self.transaksi_id).execute()
+            supabase.table("cicilan_dp").insert(payload).execute()
             QMessageBox.information(self, "Sukses", "Data cicilan berhasil disimpan.")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Gagal menyimpan cicilan:\n{str(e)}")
