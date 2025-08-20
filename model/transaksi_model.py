@@ -1,162 +1,110 @@
-from config.db_config import get_connection
+# models/transaksi_model.py
+from config.supabase_config import get_supabase
+from datetime import datetime
 
 class TransaksiModel:
+    def __init__(self):
+        self.supabase = get_supabase()
+
     def simpan_transaksi(self, data):
         if 'dp' not in data:
             data['dp'] = data.get('dp_total', 0)
 
-        conn = get_connection()
-        cursor = conn.cursor()
-        query = """
-            INSERT INTO transaksi (
-                nama, nik, tempat_lahir, tanggal_lahir, alamat, no_hp, email,
-                nama_proyek, blok_kavling, tipe_rumah, harga_rumah, skema_pembayaran,
-                utj, dp, cicilan_per_bulan, foto_ktp
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
-        cursor.execute(query, (
-            data['nama'],
-            data['nik'],
-            data['tempat_lahir'],
-            data['tanggal_lahir'],
-            data['alamat'],
-            data['no_hp'],
-            data['email'],
-            data['nama_proyek'],
-            data['blok_kavling'],
-            data['tipe_rumah'],
-            data['harga_rumah'],
-            data['skema_pembayaran'],
-            data['utj'],
-            data['dp'],
-            data['cicilan_per_bulan'],
-            data['foto_ktp']
-        ))
-        conn.commit()
-        cursor.close()
-        conn.close()
+        # Prepare data for Supabase
+        transaksi_data = {
+            'nama': data['nama'],
+            'nik': data['nik'],
+            'tempat_lahir': data['tempat_lahir'],
+            'tanggal_lahir': data['tanggal_lahir'],
+            'alamat': data['alamat'],
+            'no_hp': data['no_hp'],
+            'email': data['email'],
+            'nama_proyek': data['nama_proyek'],
+            'blok_kavling': data['blok_kavling'],
+            'tipe_rumah': data['tipe_rumah'],
+            'harga_rumah': float(data['harga_rumah']),
+            'skema_pembayaran': data['skema_pembayaran'],
+            'utj': float(data['utj']),
+            'dp': float(data['dp']),
+            'cicilan_per_bulan': float(data['cicilan_per_bulan']),
+            'foto_ktp': data['foto_ktp'],
+            'created_at': datetime.now().isoformat()
+        }
+
+        # Insert to Supabase
+        response = self.supabase.table('transaksi').insert(transaksi_data).execute()
+        return response.data[0] if response.data else None
 
     def ambil_semua_transaksi(self):
-        conn = get_connection()
-        cursor = conn.cursor()
-        query = """
-            SELECT 
-                id, nama, nik, tempat_lahir, tanggal_lahir, alamat, no_hp, email,
-                nama_proyek, blok_kavling, tipe_rumah, harga_rumah, skema_pembayaran,
-                utj, dp, cicilan_per_bulan, foto_ktp
-            FROM transaksi
-            ORDER BY id ASC
-        """
-        cursor.execute(query)
-        results = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        return results
+        response = self.supabase.table('transaksi').select('*').order('id', desc=False).execute()
+        return response.data
+
+    def ambil_transaksi_by_id(self, transaksi_id):
+        response = self.supabase.table('transaksi').select('*').eq('id', transaksi_id).execute()
+        return response.data[0] if response.data else None
 
     def update_transaksi(self, transaksi_id, data_baru):
         if 'dp' not in data_baru:
             data_baru['dp'] = data_baru.get('dp_total', 0)
 
-        conn = get_connection()
-        cursor = conn.cursor()
-        query = """
-            UPDATE transaksi SET
-                nama = %s,
-                nik = %s,
-                tempat_lahir = %s,
-                tanggal_lahir = %s,
-                alamat = %s,
-                no_hp = %s,
-                email = %s,
-                nama_proyek = %s,
-                blok_kavling = %s,
-                tipe_rumah = %s,
-                harga_rumah = %s,
-                skema_pembayaran = %s,
-                utj = %s,
-                dp = %s,
-                cicilan_per_bulan = %s,
-                foto_ktp = %s
-            WHERE id = %s
-        """
-        cursor.execute(query, (
-            data_baru['nama'],
-            data_baru['nik'],
-            data_baru['tempat_lahir'],
-            data_baru['tanggal_lahir'],
-            data_baru['alamat'],
-            data_baru['no_hp'],
-            data_baru['email'],
-            data_baru['nama_proyek'],
-            data_baru['blok_kavling'],
-            data_baru['tipe_rumah'],
-            data_baru['harga_rumah'],
-            data_baru['skema_pembayaran'],
-            data_baru['utj'],
-            data_baru['dp'],
-            data_baru['cicilan_per_bulan'],
-            data_baru['foto_ktp'],
-            transaksi_id
-        ))
-        conn.commit()
-        cursor.close()
-        conn.close()
+        update_data = {
+            'nama': data_baru['nama'],
+            'nik': data_baru['nik'],
+            'tempat_lahir': data_baru['tempat_lahir'],
+            'tanggal_lahir': data_baru['tanggal_lahir'],
+            'alamat': data_baru['alamat'],
+            'no_hp': data_baru['no_hp'],
+            'email': data_baru['email'],
+            'nama_proyek': data_baru['nama_proyek'],
+            'blok_kavling': data_baru['blok_kavling'],
+            'tipe_rumah': data_baru['tipe_rumah'],
+            'harga_rumah': float(data_baru['harga_rumah']),
+            'skema_pembayaran': data_baru['skema_pembayaran'],
+            'utj': float(data_baru['utj']),
+            'dp': float(data_baru['dp']),
+            'cicilan_per_bulan': float(data_baru['cicilan_per_bulan']),
+            'foto_ktp': data_baru['foto_ktp'],
+            'updated_at': datetime.now().isoformat()
+        }
+
+        response = self.supabase.table('transaksi').update(update_data).eq('id', transaksi_id).execute()
+        return response.data[0] if response.data else None
 
     def hapus_transaksi(self, transaksi_id):
-        conn = get_connection()
-        cursor = conn.cursor()
-        query = "DELETE FROM transaksi WHERE id = %s"
-        cursor.execute(query, (transaksi_id,))
-        conn.commit()
-        cursor.close()
-        conn.close()
+        response = self.supabase.table('transaksi').delete().eq('id', transaksi_id).execute()
+        return response.data[0] if response.data else None
 
     # =======================
-    # Tambahan untuk cicilan DP
+    # Methods untuk cicilan DP
     # =======================
     def ambil_cicilan_dp(self, transaksi_id):
-        conn = get_connection()
-        cursor = conn.cursor()
-        query = """
-            SELECT 
-                id, bulan_ke, cicilan, bayar, sisa, tanggal_bayar, catatan
-            FROM cicilan_dp
-            WHERE transaksi_id = %s
-            ORDER BY bulan_ke ASC
-        """
-        cursor.execute(query, (transaksi_id,))
-        results = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        return results
+        response = self.supabase.table('cicilan_dp').select('*').eq('transaksi_id', transaksi_id).order('bulan_ke', desc=False).execute()
+        return response.data
 
     def simpan_cicilan_dp(self, transaksi_id, data_cicilan):
-        conn = get_connection()
-        cursor = conn.cursor()
+        # Hapus data cicilan lama
+        self.supabase.table('cicilan_dp').delete().eq('transaksi_id', transaksi_id).execute()
 
-        # Hapus data cicilan lama untuk transaksi ini
-        delete_query = "DELETE FROM cicilan_dp WHERE transaksi_id = %s"
-        cursor.execute(delete_query, (transaksi_id,))
-
-        # Insert ulang data cicilan baru
-        insert_query = """
-            INSERT INTO cicilan_dp (
-                transaksi_id, bulan_ke, cicilan, bayar, sisa, tanggal_bayar, catatan
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """
+        # Siapkan data cicilan baru (tanpa kolom 'sisa' karena generated)
+        cicilan_data = []
         for cicilan in data_cicilan:
-            cursor.execute(insert_query, (
-                transaksi_id,
-                cicilan.get('bulan_ke'),
-                cicilan.get('cicilan', 0),
-                cicilan.get('bayar', 0),
-                cicilan.get('sisa', 0),
-                cicilan.get('tanggal_bayar'),
-                cicilan.get('catatan', '')
-            ))
+            cicilan_item = {
+                'transaksi_id': transaksi_id,
+                'bulan_ke': cicilan.get('bulan_ke'),
+                'cicilan': float(cicilan.get('cicilan', 0)),
+                'bayar': float(cicilan.get('bayar', 0)),
+                'tanggal_bayar': cicilan.get('tanggal_bayar'),
+                'catatan': cicilan.get('catatan', ''),
+                'created_at': datetime.now().isoformat()
+            }
+            cicilan_data.append(cicilan_item)
 
-        conn.commit()
-        cursor.close()
-        conn.close()
+        # Insert data cicilan baru
+        if cicilan_data:
+            response = self.supabase.table('cicilan_dp').insert(cicilan_data).execute()
+            return response.data
+        return []
+
+    def hapus_cicilan_dp(self, transaksi_id):
+        response = self.supabase.table('cicilan_dp').delete().eq('transaksi_id', transaksi_id).execute()
+        return response.data

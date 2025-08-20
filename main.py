@@ -1,8 +1,6 @@
 import sys
 from pathlib import Path
-from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QMessageBox, QSplashScreen
-)
+from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox, QSplashScreen
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QPixmap
 
@@ -60,21 +58,16 @@ class MainWindow(QMainWindow):
                 padding: 5px;
                 font-size: 10pt;
             }
-            QMessageBox {
-                font-family: 'Segoe UI';
-            }
         """)
 
     def show_login(self):
         self.cleanup_dashboard()
-
         if self.splash:
             self.splash.close()
 
-        # ✅ Tampilkan logo loading (assets/logo.png)
+        # Logo loading sebelum login
         logo_path = Path(__file__).parent / "assets" / "logo.png"
-        loading = LoadingLogoView(str(logo_path), 1500, self)
-        loading.exec()
+        LoadingLogoView(str(logo_path), 1500, self).exec()
 
         self.login_window = LoginView()
         self.login_window.login_success.connect(self.handle_login_success)
@@ -89,9 +82,8 @@ class MainWindow(QMainWindow):
                     self.dashboard.logout_requested.disconnect()
                 self.dashboard.deleteLater()
             except RuntimeError as e:
-                print(f"Dashboard cleanup error: {str(e)}")
-            finally:
-                self.dashboard = None
+                print(f"Dashboard cleanup error: {e}")
+            self.dashboard = None
 
     def handle_login_success(self, user_data):
         self.current_user = user_data
@@ -99,9 +91,7 @@ class MainWindow(QMainWindow):
             self.show_dashboard(user_data)
             self.update_status_message(user_data)
         except Exception as e:
-            QMessageBox.critical(
-                self, "Login Error", f"Failed to initialize dashboard:\n{str(e)}"
-            )
+            QMessageBox.critical(self, "Login Error", f"Failed to initialize dashboard:\n{e}")
             self.show_login()
 
     def show_dashboard(self, user_data):
@@ -122,18 +112,14 @@ class MainWindow(QMainWindow):
 
         except Exception as e:
             self.cleanup_dashboard()
-            QMessageBox.critical(
-                self, "Dashboard Error", f"Failed to create dashboard:\n{str(e)}"
-            )
+            QMessageBox.critical(self, "Dashboard Error", f"Failed to create dashboard:\n{e}")
             raise
 
     def update_status_message(self, user_data):
-        if hasattr(self, 'statusBar'):
-            status_message = (
-                f"User: {user_data.get('username', 'N/A')} | "
-                f"Role: {user_data.get('role', 'user')}"
+        if self.statusBar():
+            self.statusBar().showMessage(
+                f"User: {user_data.get('username', 'N/A')} | Role: {user_data.get('role', 'user')}"
             )
-            self.statusBar().showMessage(status_message)
 
     def handle_logout(self):
         self.current_user = None
@@ -146,12 +132,12 @@ class MainWindow(QMainWindow):
         msg_box = QMessageBox(self)
         msg_box.setWindowTitle("Konfirmasi Keluar")
         msg_box.setText("Apakah Anda yakin ingin menutup aplikasi?")
-        yes_button = msg_box.addButton("Ya", QMessageBox.YesRole)
-        no_button = msg_box.addButton("Tidak", QMessageBox.NoRole)
-        msg_box.setDefaultButton(no_button)
+        yes_btn = msg_box.addButton("Ya", QMessageBox.YesRole)
+        no_btn = msg_box.addButton("Tidak", QMessageBox.NoRole)
+        msg_box.setDefaultButton(no_btn)
         msg_box.exec()
 
-        if msg_box.clickedButton() == yes_button:
+        if msg_box.clickedButton() == yes_btn:
             self.cleanup_dashboard()
             if self.login_window:
                 self.login_window.close()
@@ -206,9 +192,8 @@ if __name__ == "__main__":
     try:
         app = QApplication(sys.argv)
         apply_global_styles(app)
-
         window = MainWindow()
         sys.exit(app.exec())
     except Exception as e:
-        print(f"Fatal error: {str(e)}")
+        print(f"Fatal error: {e}")
         sys.exit(1)

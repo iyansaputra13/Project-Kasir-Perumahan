@@ -4,9 +4,8 @@ from PySide6.QtWidgets import (
     QDateEdit, QStyledItemDelegate, QMessageBox, QFileDialog
 )
 from PySide6.QtCore import Qt, QDate
-from controller.transaksi_controller import TransaksiController
 from openpyxl import Workbook
-
+from config.supabase_config import get_supabase  # Menggunakan config yang benar
 
 # ---------- helper ----------
 def idr(n: int) -> str:
@@ -17,7 +16,6 @@ def idr(n: int) -> str:
 
 
 class DateDelegate(QStyledItemDelegate):
-    """Editor tanggal langsung di tabel"""
     def createEditor(self, parent, option, index):
         editor = QDateEdit(parent)
         editor.setCalendarPopup(True)
@@ -37,7 +35,6 @@ class DateDelegate(QStyledItemDelegate):
         editor.setGeometry(option.rect)
 
 
-# ---------- main dialog ----------
 class DetailPembayaranView(QDialog):
     COL_BULAN = 0
     COL_CICILAN = 1
@@ -45,8 +42,10 @@ class DetailPembayaranView(QDialog):
 
     def __init__(self, data_transaksi, parent=None):
         super().__init__(parent)
+        
+        # Inisialisasi Supabase client
+        self.supabase = get_supabase()
 
-        # ---- data dasar dari tuple transaksi ----
         self.data = data_transaksi
         self.transaksi_id = int(self.data[0])
         self.nama_pembeli = str(self.data[1] or "")
@@ -54,46 +53,30 @@ class DetailPembayaranView(QDialog):
         self.cicilan_per_bulan = int(self.data[15] or 0)
         self.tenor = self._calc_default_tenor(self.dp_total, self.cicilan_per_bulan)
 
-        # ---- controller DB ----
-        self.ctrl = TransaksiController()
-
-        # ---- window ----
         self.setWindowTitle(f"Cicilan DP – {self.nama_pembeli}")
         self.resize(920, 560)
         self.setModal(True)
 
-        # ---- UI ----
         self._build_ui()
-
-        # ---- Data awal ----
         self._load_or_generate()
 
     def _build_ui(self):
         root = QHBoxLayout(self)
 
-        # === Panel kiri ===
+        # Panel kiri
         left = QVBoxLayout()
         left_panel = QWidget()
         left_panel.setLayout(left)
         left_panel.setStyleSheet("""
-            QWidget {
-                background: #f5f5f5;
-                border-radius: 12px;
-            }
+            QWidget { background: #f5f5f5; border-radius: 12px; }
         """)
         lbl_title_total = QLabel("TOTAL DP")
         lbl_title_total.setStyleSheet("font-weight:700;color:#555;font-size:12px;")
         self.lbl_total_dp = QLabel(idr(self.dp_total))
         self.lbl_total_dp.setAlignment(Qt.AlignCenter)
         self.lbl_total_dp.setStyleSheet("""
-            QLabel { 
-                font-size: 28px; 
-                font-weight: 800; 
-                background: white;
-                border: 1px solid #e5e7eb; 
-                border-radius: 10px; 
-                padding: 14px 10px; 
-            }
+            QLabel { font-size: 28px; font-weight: 800; background: white;
+            border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px 10px; }
         """)
         left.addSpacing(10)
         left.addWidget(lbl_title_total, 0, Qt.AlignHCenter)
@@ -104,10 +87,9 @@ class DetailPembayaranView(QDialog):
         divider.setFrameShape(QFrame.VLine)
         divider.setStyleSheet("color:#e5e7eb;")
 
-        # === Panel kanan ===
+        # Panel kanan
         right = QVBoxLayout()
 
-        # bar kontrol
         topbar = QHBoxLayout()
         self.lbl_header = QLabel(f"Cicilan {self.tenor} x")
         self.lbl_header.setStyleSheet("font-size:18px;font-weight:700;color:#111827;")
@@ -138,11 +120,9 @@ class DetailPembayaranView(QDialog):
 
         right.addLayout(topbar)
 
-        # tabel
         self.table = QTableWidget(0, 3)
         self.table.setHorizontalHeaderLabels(["Bulan", "Cicilan (Rp)", "Tanggal Bayar"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.table.horizontalHeader().setHighlightSections(False)
         self.table.verticalHeader().setVisible(False)
         self.table.setAlternatingRowColors(True)
         self.table.setItemDelegateForColumn(self.COL_TANGGAL, DateDelegate())
@@ -163,19 +143,16 @@ class DetailPembayaranView(QDialog):
 
     def _load_or_generate(self):
         try:
-            rows = self.ctrl.ambil_cicilan_dp(self.transaksi_id)
+            res = self.supabase.table("cicilan_dp").select("*").eq("transaksi_id", self.transaksi_id).order("bulan_ke").execute()
+            rows = res.data
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Gagal mengambil cicilan:\n{str(e)}")
             rows = []
 
         if rows:
             self.table.setRowCount(0)
-            for (_cid, bulan, cicilan, bayar, sisa, tanggal, _catatan) in rows:
-                self._append_row(
-                    bulan,
-                    int(cicilan or 0),
-                    str(tanggal or "")
-                )
+            for row in rows:
+                self._append_row(row["bulan_ke"], int(row["cicilan"] or 0), row.get("tanggal_bayar") or "")
         else:
             self._generate_schedule()
 
@@ -264,6 +241,7 @@ class DetailPembayaranView(QDialog):
                 sisa = cicilan
 
             data.append({
+                "transaksi_id": self.transaksi_id,
                 "bulan_ke": bulan,
                 "cicilan": cicilan,
                 "bayar": bayar,
@@ -276,7 +254,10 @@ class DetailPembayaranView(QDialog):
     def _save_all(self):
         try:
             payload = self._collect_payload()
-            self.ctrl.simpan_cicilan_dp(self.transaksi_id, payload)
+            # Hapus data lama
+            self.supabase.table("cicilan_dp").delete().eq("transaksi_id", self.transaksi_id).execute()
+            # Insert data baru
+            result = self.supabase.table("cicilan_dp").insert(payload).execute()
             QMessageBox.information(self, "Sukses", "Data cicilan berhasil disimpan.")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Gagal menyimpan cicilan:\n{str(e)}")

@@ -7,6 +7,7 @@ from view.form_input_dialog import FormInputDialog
 from view.detail_pembayaran_view import DetailPembayaranView
 from controller.transaksi_controller import TransaksiController
 
+
 class DashboardView(QWidget):
     logout_requested = Signal()
 
@@ -22,6 +23,7 @@ class DashboardView(QWidget):
         main_layout = QVBoxLayout()
         self.setLayout(main_layout)
 
+        # === Header ===
         header_layout = QHBoxLayout()
 
         title = QLabel("\U0001F4CB Daftar Transaksi Penjualan Rumah")
@@ -61,7 +63,7 @@ class DashboardView(QWidget):
 
         main_layout.addLayout(header_layout)
 
-        # Search bar
+        # === Search bar ===
         search_layout = QHBoxLayout()
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Cari nama, NIK, proyek, atau tipe rumah...")
@@ -70,8 +72,9 @@ class DashboardView(QWidget):
         search_layout.addWidget(self.search_input)
         main_layout.addLayout(search_layout)
 
-        # Tombol Tambah dan Refresh
+        # === Tombol Tambah dan Refresh ===
         button_layout = QHBoxLayout()
+
         tambah_button = QPushButton("➕ Tambah Transaksi")
         tambah_button.setStyleSheet("""
             QPushButton {
@@ -105,13 +108,14 @@ class DashboardView(QWidget):
         button_layout.addStretch()
         main_layout.addLayout(button_layout)
 
-        # Tabel Transaksi
+        # === Tabel Transaksi ===
         self.tabel = QTableWidget()
-        self.tabel.setColumnCount(18)
+        self.tabel.setColumnCount(17)  # 16 data + 1 kolom aksi
         self.tabel.setHorizontalHeaderLabels([
-            "ID", "Nama", "NIK", "Tempat Lahir", "Tanggal Lahir", 
-            "Alamat", "No HP", "Email", "Proyek", "Blok/Kavling", 
-            "Tipe Rumah", "Harga Jual", "Skema", "UTJ", "DP", "Cicilan/Bulan", "Aksi"
+            "ID", "Nama", "NIK", "Tempat Lahir", "Tanggal Lahir",
+            "Alamat", "No HP", "Email", "Proyek", "Blok/Kavling",
+            "Tipe Rumah", "Harga Jual", "Skema", "UTJ", "DP",
+            "Cicilan/Bulan", "Aksi"
         ])
         header = self.tabel.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.Interactive)
@@ -119,7 +123,7 @@ class DashboardView(QWidget):
         self.tabel.setSortingEnabled(True)
         main_layout.addWidget(self.tabel)
 
-        # Status
+        # === Status Bar ===
         self.status_label = QLabel("Sistem siap")
         self.status_label.setStyleSheet("font-size: 10px; color: #7f8c8d; border-top: 1px solid #ddd; padding: 5px;")
         main_layout.addWidget(self.status_label)
@@ -143,26 +147,42 @@ class DashboardView(QWidget):
             filtered = []
             for t in transaksi_list:
                 if query:
-                    search_fields = [str(t[i]).lower() for i in [1, 2, 8, 10] if t[i] is not None]
+                    search_fields = [
+                        str(t.get("nama", "")).lower(),
+                        str(t.get("nik", "")).lower(),
+                        str(t.get("proyek", "")).lower(),
+                        str(t.get("tipe_rumah", "")).lower()
+                    ]
                     if not any(query in field for field in search_fields):
                         continue
                 filtered.append(t)
 
             for row_index, t in enumerate(filtered):
                 self.tabel.insertRow(row_index)
-                for col_index in range(16):  # 0 - 15
+
+                # Isi kolom data
+                fields = [
+                    "id", "nama", "nik", "tempat_lahir", "tanggal_lahir",
+                    "alamat", "no_hp", "email", "proyek", "blok",
+                    "tipe_rumah", "harga", "skema", "utj", "dp", "cicilan"
+                ]
+
+                for col_index, field in enumerate(fields):
                     item = QTableWidgetItem()
                     item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-                    val = t[col_index]
+                    val = t.get(field)
                     if val is None:
                         item.setText("-")
-                    elif col_index in [11, 13, 14, 15]:
-                        item.setText(f"Rp {int(val):,}")
+                    elif field in ["harga", "utj", "dp", "cicilan"]:
+                        try:
+                            item.setText(f"Rp {int(val):,}")
+                        except Exception:
+                            item.setText(str(val))
                     else:
-                        item.setText(str(val)[:30])  # Potong jika terlalu panjang
+                        item.setText(str(val)[:30])  # Batasi panjang teks
                     self.tabel.setItem(row_index, col_index, item)
 
-                # Kolom Aksi
+                # === Kolom Aksi ===
                 aksi_layout = QHBoxLayout()
                 aksi_widget = QWidget()
 
@@ -202,7 +222,8 @@ class DashboardView(QWidget):
 
     def edit_transaksi(self, data):
         dialog = FormInputDialog(self)
-        dialog.load_data(data)  # Fungsi ini harus kamu tambahkan di form dialog
+        if hasattr(dialog, "load_data"):
+            dialog.load_data(data)
         if dialog.exec():
             self.load_data()
             self.update_status("Transaksi berhasil diperbarui")
@@ -210,11 +231,11 @@ class DashboardView(QWidget):
     def hapus_transaksi(self, data):
         konfirmasi = QMessageBox.question(
             self, "Konfirmasi Hapus",
-            f"Yakin ingin menghapus transaksi atas nama {data[1]}?",
+            f"Yakin ingin menghapus transaksi atas nama {data.get('nama', '')}?",
             QMessageBox.Yes | QMessageBox.No
         )
         if konfirmasi == QMessageBox.Yes:
-            self.controller.hapus_transaksi(data[0])
+            self.controller.hapus_transaksi(data.get("id"))
             self.load_data()
             QMessageBox.information(self, "Info", "Data berhasil dihapus")
 

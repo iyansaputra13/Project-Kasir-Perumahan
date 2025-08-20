@@ -1,35 +1,32 @@
-from mysql.connector import Error
-from config.db_config import get_connection
+# controller/auth_controller.py
+
+from config.supabase_config import get_supabase
+
 
 class AuthController:
     def __init__(self):
-        pass  # Inisialisasi jika diperlukan
+        self.supabase = get_supabase()
 
     def authenticate(self, username, password):
-        """Authenticate user credentials"""
+        """Authenticate user credentials dengan Supabase"""
         try:
-            connection = get_connection()
-            cursor = connection.cursor(dictionary=True)
-            
-            query = """
-                SELECT id, username, full_name 
-                FROM users 
-                WHERE username = %s AND password = %s
-            """
-            cursor.execute(query, (username, password))
-            user = cursor.fetchone()
-            
-            # Tambahkan default role jika tidak ada
-            if user:
-                user['role'] = user.get('role', 'user')  # Default role
-            
-            return user
-            
-        except Error as e:
-            raise Exception(f"Database error: {str(e)}")
+            # Query ke tabel "users" di Supabase
+            response = (
+                self.supabase
+                .table("users")
+                .select("*")
+                .eq("username", username)
+                .eq("password", password)
+                .execute()
+            )
+
+            if response.data and len(response.data) > 0:
+                user = response.data[0]  # Ambil user pertama
+                # Tambahkan default role jika tidak ada
+                user["role"] = user.get("role", "user")
+                return user
+            else:
+                return None
+
         except Exception as e:
             raise Exception(f"Authentication error: {str(e)}")
-        finally:
-            if 'connection' in locals() and connection.is_connected():
-                cursor.close()
-                connection.close()

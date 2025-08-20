@@ -1,12 +1,15 @@
+# view/login_view.py
+
 from PySide6.QtCore import Signal, Qt, QTimer, QPropertyAnimation, QPoint
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QLabel, 
+    QMainWindow, QWidget, QVBoxLayout, QLabel,
     QLineEdit, QPushButton, QMessageBox, QHBoxLayout,
     QApplication
 )
 from controller.auth_controller import AuthController
 import os
+
 
 class LoginView(QMainWindow):
     login_success = Signal(dict)
@@ -60,7 +63,7 @@ class LoginView(QMainWindow):
         self.username_input.setStyleSheet("""
             QLineEdit {
                 background: white;
-                color: black; /* Pastikan teks hitam */
+                color: black;
                 padding-left: 6px;
                 border-radius: 5px;
             }
@@ -91,7 +94,7 @@ class LoginView(QMainWindow):
         self.password_input.setStyleSheet("""
             QLineEdit {
                 border: none;
-                color: black; /* Pastikan teks hitam */
+                color: black;
             }
         """)
         self.password_input.returnPressed.connect(self.try_login)
@@ -166,9 +169,13 @@ class LoginView(QMainWindow):
         self.set_loading(True)
 
         try:
+            # Panggil AuthController (Supabase)
             user = self.auth_controller.authenticate(username, password)
+
             if user:
                 self._login_successful = True
+                QMessageBox.information(self, "Login Berhasil",
+                                        f"Selamat datang, {user.get('full_name', user['username'])}!")
                 self.login_success.emit(user)
                 self.close()
             else:
@@ -179,12 +186,13 @@ class LoginView(QMainWindow):
                 else:
                     self.lockout()
         except Exception as e:
-            self.show_error(f"Terjadi kesalahan sistem:\n{str(e)}")
+            self.show_error(f"Gagal login:\n{str(e)}")
         finally:
             self.set_loading(False)
 
     def lockout(self):
-        QMessageBox.critical(self, "Akses Ditolak", f"Batas login {self.max_attempts} kali tercapai.\nSilakan coba lagi dalam 30 detik.")
+        QMessageBox.critical(self, "Akses Ditolak",
+                             f"Batas login {self.max_attempts} kali tercapai.\nSilakan coba lagi dalam 30 detik.")
         self.setDisabled(True)
         QTimer.singleShot(self.lockout_duration, self.reset_lockout)
 

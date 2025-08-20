@@ -1,3 +1,4 @@
+# view/form_input_dialog.py
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton,
     QComboBox, QFileDialog, QMessageBox, QFormLayout, QDateEdit
@@ -116,29 +117,29 @@ class FormInputDialog(QDialog):
             f"Catatan: Pembayaran bulanan bisa sebagian, sisa akan tercatat."
         )
 
-    def load_data(self, data):
-        self.transaksi_id = data[0]
-        self.nama_input.setText(str(data[1]))
-        self.nik_input.setText(str(data[2]))
-        self.tempat_lahir_input.setText(str(data[3]))
+    def load_data(self, data: dict):
+        """Load data transaksi dari Supabase (format dict)"""
+        self.transaksi_id = data.get("id")
+        self.nama_input.setText(str(data.get("nama", "")))
+        self.nik_input.setText(str(data.get("nik", "")))
+        self.tempat_lahir_input.setText(str(data.get("tempat_lahir", "")))
 
         try:
-            if isinstance(data[4], str):
-                y, m, d = map(int, data[4].split("-"))
+            tgl_lahir = data.get("tanggal_lahir")
+            if isinstance(tgl_lahir, str):
+                y, m, d = map(int, tgl_lahir.split("-"))
                 self.tanggal_lahir_input.setDate(QDate(y, m, d))
-            elif hasattr(data[4], "year"):
-                self.tanggal_lahir_input.setDate(QDate(data[4].year, data[4].month, data[4].day))
         except Exception as e:
             print("Gagal set tanggal:", e)
 
-        self.alamat_input.setText(str(data[5]))
-        self.no_hp_input.setText(str(data[6]))
-        self.email_input.setText(str(data[7]))
-        self.foto_ktp_path = str(data[8]) if data[8] else ""
-        self.proyek_input.setCurrentText(str(data[9]))
-        self.blok_input.setText(str(data[10]))
-        self.tipe_input.setCurrentText(str(data[11]))
-        self.harga_input.setText(str(data[12]))
+        self.alamat_input.setText(str(data.get("alamat", "")))
+        self.no_hp_input.setText(str(data.get("no_hp", "")))
+        self.email_input.setText(str(data.get("email", "")))
+        self.foto_ktp_path = str(data.get("foto_ktp", ""))
+        self.proyek_input.setCurrentText(str(data.get("nama_proyek", "")))
+        self.blok_input.setText(str(data.get("blok_kavling", "")))
+        self.tipe_input.setCurrentText(str(data.get("tipe_rumah", "")))
+        self.harga_input.setText(str(data.get("harga_rumah", "")))
 
         self.hitung_pembayaran()
 
@@ -155,7 +156,7 @@ class FormInputDialog(QDialog):
                 "nama": self.nama_input.text().strip(),
                 "nik": self.nik_input.text().strip(),
                 "tempat_lahir": self.tempat_lahir_input.text().strip(),
-                "tanggal_lahir": self.tanggal_lahir_input.date().toPython(),
+                "tanggal_lahir": self.tanggal_lahir_input.date().toPython().isoformat(),
                 "alamat": self.alamat_input.text().strip(),
                 "no_hp": self.no_hp_input.text().strip(),
                 "email": self.email_input.text().strip(),
@@ -171,6 +172,7 @@ class FormInputDialog(QDialog):
                 "catatan": "Pembayaran bulanan bisa sebagian, sisa akan tercatat"
             }
 
+            # Validasi
             for field in ["nama", "nik", "tempat_lahir", "blok_kavling"]:
                 if not data[field]:
                     QMessageBox.warning(self, "Validasi", f"{field.replace('_', ' ').title()} wajib diisi.")
