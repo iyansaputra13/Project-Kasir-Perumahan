@@ -163,8 +163,8 @@ class DashboardView(QWidget):
                 # Isi kolom data
                 fields = [
                     "id", "nama", "nik", "tempat_lahir", "tanggal_lahir",
-                    "alamat", "no_hp", "email", "proyek", "blok",
-                    "tipe_rumah", "harga", "skema", "utj", "dp", "cicilan"
+                    "alamat", "no_hp", "email", "nama_proyek", "blok_kavling",
+                    "tipe_rumah", "harga_rumah", "skema_pembayaran", "utj", "dp", "cicilan_per_bulan"
                 ]
 
                 for col_index, field in enumerate(fields):

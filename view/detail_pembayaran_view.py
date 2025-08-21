@@ -44,7 +44,6 @@ class DetailPembayaranView(QDialog):
         super().__init__(parent)
 
         self.data = data_transaksi
-        # ✅ sekarang pakai key dictionary, bukan index
         self.transaksi_id = int(self.data.get("id", 0))
         self.nama_pembeli = str(self.data.get("nama_pembeli", ""))
         self.dp_total = int(self.data.get("dp_total", 0))
@@ -233,17 +232,15 @@ class DetailPembayaranView(QDialog):
             tanggal = (self.table.item(r, self.COL_TANGGAL).text() or "").strip()
             if tanggal:
                 bayar = cicilan
-                sisa = 0
             else:
                 bayar = 0
-                sisa = cicilan
 
+            # ⚠️ Hapus kolom "sisa", biarkan database yang hitung
             data.append({
                 "transaksi_id": self.transaksi_id,
                 "bulan_ke": bulan,
                 "cicilan": cicilan,
                 "bayar": bayar,
-                "sisa": sisa,
                 "tanggal_bayar": tanggal if tanggal else None,
                 "catatan": ""
             })
