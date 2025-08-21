@@ -22,33 +22,57 @@ class DashboardView(QWidget):
     def init_ui(self):
         main_layout = QVBoxLayout()
         self.setLayout(main_layout)
+        self.setStyleSheet("""
+            QWidget {
+                font-family: Segoe UI, sans-serif;
+                font-size: 13px;
+            }
+            QTableWidget {
+                gridline-color: #ecf0f1;
+                background-color: #ffffff;
+                alternate-background-color: #f9f9f9;
+                border: 1px solid #ddd;
+            }
+            QHeaderView::section {
+                background-color: #3498db;
+                color: white;
+                font-weight: bold;
+                padding: 6px;
+                border: none;
+            }
+            QLineEdit {
+                padding: 6px;
+                border: 1px solid #bdc3c7;
+                border-radius: 6px;
+            }
+            QLabel#statusBar {
+                background-color: #f4f6f7;
+                border-top: 1px solid #dcdcdc;
+                color: #7f8c8d;
+                padding: 5px;
+                font-size: 11px;
+            }
+        """)
 
         # === Header ===
         header_layout = QHBoxLayout()
 
-        title = QLabel("\U0001F4CB Daftar Transaksi Penjualan Rumah")
-        title.setStyleSheet("font-size: 20px; font-weight: bold; color: #2c3e50;")
+        title = QLabel("🏠 Dashboard Transaksi Rumah")
+        title.setStyleSheet("font-size: 22px; font-weight: bold; color: #2c3e50;")
 
         self.user_info_label = QLabel(
-            f"User: {self.user_data.get('full_name', '')} | "
-            f"Role: {self.user_data.get('role', 'user')}"
+            f"{self.user_data.get('full_name', '')} "
+            f"({self.user_data.get('role', 'user')})"
         )
-        self.user_info_label.setStyleSheet("""
-            font-size: 12px;
-            color: #7f8c8d;
-            padding: 5px;
-            background-color: #f0f0f0;
-            border-radius: 3px;
-        """)
+        self.user_info_label.setStyleSheet("font-size: 12px; color: #7f8c8d; padding: 5px;")
 
         logout_btn = QPushButton("Logout")
         logout_btn.setStyleSheet("""
             QPushButton {
                 background-color: #e74c3c;
                 color: white;
-                padding: 5px 10px;
-                border-radius: 4px;
-                font-size: 12px;
+                padding: 6px 14px;
+                border-radius: 6px;
             }
             QPushButton:hover {
                 background-color: #c0392b;
@@ -66,9 +90,8 @@ class DashboardView(QWidget):
         # === Search bar ===
         search_layout = QHBoxLayout()
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Cari nama, NIK, proyek, atau tipe rumah...")
+        self.search_input.setPlaceholderText("🔍 Cari nama, NIK, proyek, atau tipe rumah...")
         self.search_input.textChanged.connect(self.load_data)
-        search_layout.addWidget(QLabel("🔍"))
         search_layout.addWidget(self.search_input)
         main_layout.addLayout(search_layout)
 
@@ -80,8 +103,8 @@ class DashboardView(QWidget):
             QPushButton {
                 background-color: #3498db;
                 color: white;
-                padding: 8px 16px;
-                border-radius: 4px;
+                padding: 8px 18px;
+                border-radius: 6px;
             }
             QPushButton:hover {
                 background-color: #2980b9;
@@ -94,8 +117,8 @@ class DashboardView(QWidget):
             QPushButton {
                 background-color: #2ecc71;
                 color: white;
-                padding: 8px 16px;
-                border-radius: 4px;
+                padding: 8px 18px;
+                border-radius: 6px;
             }
             QPushButton:hover {
                 background-color: #27ae60;
@@ -110,6 +133,7 @@ class DashboardView(QWidget):
 
         # === Tabel Transaksi ===
         self.tabel = QTableWidget()
+        self.tabel.setAlternatingRowColors(True)
         self.tabel.setColumnCount(17)  # 16 data + 1 kolom aksi
         self.tabel.setHorizontalHeaderLabels([
             "ID", "Nama", "NIK", "Tempat Lahir", "Tanggal Lahir",
@@ -118,14 +142,14 @@ class DashboardView(QWidget):
             "Cicilan/Bulan", "Aksi"
         ])
         header = self.tabel.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.Interactive)
+        header.setSectionResizeMode(QHeaderView.ResizeToContents)
         header.setStretchLastSection(True)
         self.tabel.setSortingEnabled(True)
         main_layout.addWidget(self.tabel)
 
         # === Status Bar ===
-        self.status_label = QLabel("Sistem siap")
-        self.status_label.setStyleSheet("font-size: 10px; color: #7f8c8d; border-top: 1px solid #ddd; padding: 5px;")
+        self.status_label = QLabel("✅ Sistem siap")
+        self.status_label.setObjectName("statusBar")
         main_layout.addWidget(self.status_label)
 
     def update_status(self, message):
@@ -135,13 +159,13 @@ class DashboardView(QWidget):
         try:
             self.tabel.setSortingEnabled(False)
             self.tabel.setRowCount(0)
-            self.update_status("Memuat data...")
+            self.update_status("⏳ Memuat data...")
 
             transaksi_list = self.controller.ambil_semua_transaksi()
             query = self.search_input.text().strip().lower()
 
             if not transaksi_list:
-                self.update_status("Tidak ada data transaksi")
+                self.update_status("⚠ Tidak ada data transaksi")
                 return
 
             filtered = []
@@ -173,29 +197,32 @@ class DashboardView(QWidget):
                     val = t.get(field)
                     if val is None:
                         item.setText("-")
-                    elif field in ["harga", "utj", "dp", "cicilan"]:
+                    elif field in ["harga", "harga_rumah", "utj", "dp", "cicilan", "cicilan_per_bulan"]:
                         try:
-                            item.setText(f"Rp {int(val):,}")
+                            item.setText(f"Rp {int(val):,}".replace(",", "."))
                         except Exception:
                             item.setText(str(val))
                     else:
-                        item.setText(str(val)[:30])  # Batasi panjang teks
+                        item.setText(str(val)[:40])  # Batasi panjang teks
                     self.tabel.setItem(row_index, col_index, item)
 
                 # === Kolom Aksi ===
                 aksi_layout = QHBoxLayout()
                 aksi_widget = QWidget()
 
-                btn_detail = QPushButton("Lihat")
-                btn_detail.setStyleSheet("background-color: #f39c12; color: white; border-radius: 4px;")
+                btn_detail = QPushButton("👁")
+                btn_detail.setToolTip("Lihat detail")
+                btn_detail.setStyleSheet("background-color: #f39c12; color: white; border-radius: 4px; padding:4px;")
                 btn_detail.clicked.connect(lambda _, data=t: self.buka_detail_pembayaran(data))
 
-                btn_edit = QPushButton("Edit")
-                btn_edit.setStyleSheet("background-color: #2980b9; color: white; border-radius: 4px;")
+                btn_edit = QPushButton("✏")
+                btn_edit.setToolTip("Edit data")
+                btn_edit.setStyleSheet("background-color: #2980b9; color: white; border-radius: 4px; padding:4px;")
                 btn_edit.clicked.connect(lambda _, data=t: self.edit_transaksi(data))
 
-                btn_hapus = QPushButton("Hapus")
-                btn_hapus.setStyleSheet("background-color: #c0392b; color: white; border-radius: 4px;")
+                btn_hapus = QPushButton("🗑")
+                btn_hapus.setToolTip("Hapus data")
+                btn_hapus.setStyleSheet("background-color: #c0392b; color: white; border-radius: 4px; padding:4px;")
                 btn_hapus.clicked.connect(lambda _, data=t: self.hapus_transaksi(data))
 
                 for b in [btn_detail, btn_edit, btn_hapus]:
@@ -205,10 +232,10 @@ class DashboardView(QWidget):
 
                 self.tabel.setCellWidget(row_index, 16, aksi_widget)
 
-            self.update_status(f"Data berhasil dimuat ({len(filtered)} transaksi)")
+            self.update_status(f"✅ Data berhasil dimuat ({len(filtered)} transaksi)")
 
         except Exception as e:
-            self.update_status(f"Error: {str(e)}")
+            self.update_status(f"❌ Error: {str(e)}")
             QMessageBox.critical(self, "Error", f"Gagal memuat data transaksi:\n{str(e)}")
         finally:
             self.tabel.setSortingEnabled(True)
@@ -217,7 +244,7 @@ class DashboardView(QWidget):
         dialog = FormInputDialog(self)
         if dialog.exec():
             self.load_data()
-            self.update_status("Transaksi baru ditambahkan")
+            self.update_status("✅ Transaksi baru ditambahkan")
             QMessageBox.information(self, "Sukses", "Transaksi berhasil disimpan.")
 
     def edit_transaksi(self, data):
@@ -226,7 +253,7 @@ class DashboardView(QWidget):
             dialog.load_data(data)
         if dialog.exec():
             self.load_data()
-            self.update_status("Transaksi berhasil diperbarui")
+            self.update_status("✏ Transaksi berhasil diperbarui")
 
     def hapus_transaksi(self, data):
         konfirmasi = QMessageBox.question(
@@ -237,7 +264,7 @@ class DashboardView(QWidget):
         if konfirmasi == QMessageBox.Yes:
             self.controller.hapus_transaksi(data.get("id"))
             self.load_data()
-            QMessageBox.information(self, "Info", "Data berhasil dihapus")
+            QMessageBox.information(self, "Info", "🗑 Data berhasil dihapus")
 
     def buka_detail_pembayaran(self, data_transaksi):
         self.detail_view = DetailPembayaranView(data_transaksi)

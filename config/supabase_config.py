@@ -12,7 +12,7 @@ class SupabaseClient:
     def get_client(cls):
         if cls._instance is None:
             supabase_url = os.getenv("SUPABASE_URL")
-            supabase_key = os.getenv("SUPABASE_KEY")
+            supabase_key = os.getenv("SUPABASE_SECRET_KEY")
             if not supabase_url or not supabase_key:
                 raise ValueError("Supabase credentials not found in environment variables")
             cls._instance = create_client(supabase_url, supabase_key)
