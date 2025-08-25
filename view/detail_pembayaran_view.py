@@ -43,11 +43,17 @@ class DetailPembayaranView(QDialog):
     def __init__(self, data_transaksi: dict, parent=None):
         super().__init__(parent)
 
-        self.data = data_transaksi
+        self.data = data_transaksi or {}
         self.transaksi_id = int(self.data.get("id", 0))
-        self.nama_pembeli = str(self.data.get("nama_pembeli", ""))
-        self.dp_total = int(self.data.get("dp_total", 0))
-        self.cicilan_per_bulan = int(self.data.get("cicilan_per_bulan", 0))
+
+        # Fallback nama: pakai "nama" jika "nama_pembeli" tidak ada
+        self.nama_pembeli = str(self.data.get("nama_pembeli") or self.data.get("nama") or "")
+
+        # Fallback DP: pakai "dp_total" jika ada, kalau tidak ada ambil "dp"
+        self.dp_total = int(self.data.get("dp_total") or self.data.get("dp") or 0)
+
+        # Cicilan per bulan (untuk hitung tenor default)
+        self.cicilan_per_bulan = int(self.data.get("cicilan_per_bulan") or 0)
         self.tenor = self._calc_default_tenor(self.dp_total, self.cicilan_per_bulan)
 
         self.setWindowTitle(f"Cicilan DP – {self.nama_pembeli}")
@@ -148,8 +154,16 @@ class DetailPembayaranView(QDialog):
 
         if rows:
             self.table.setRowCount(0)
+            total_from_rows = 0
             for row in rows:
-                self._append_row(row["bulan_ke"], int(row["cicilan"] or 0), row.get("tanggal_bayar") or "")
+                cic = int(row.get("cicilan") or 0)
+                total_from_rows += cic
+                self._append_row(row["bulan_ke"], cic, row.get("tanggal_bayar") or "")
+
+            # Jika dp_total belum ada (0) tapi ada data cicilan, gunakan total tabel
+            if self.dp_total <= 0 and total_from_rows > 0:
+                self.dp_total = total_from_rows
+                self.lbl_total_dp.setText(idr(self.dp_total))
         else:
             self._generate_schedule()
 
@@ -266,7 +280,7 @@ class DetailPembayaranView(QDialog):
             ws.title = "Cicilan DP"
 
             ws.append(["Nama Pembeli", self.nama_pembeli])
-            ws.append(["Total DP", self.dp_total])
+            ws.append(["Total DP", idr(self.dp_total)])
             ws.append([])
             ws.append(["Bulan", "Nominal Cicilan", "Tanggal Bayar"])
 
